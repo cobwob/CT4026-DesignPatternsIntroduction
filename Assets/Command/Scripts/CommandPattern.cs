@@ -1,5 +1,4 @@
-﻿using System.Collections;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 
 public class CommandPattern : MonoBehaviour
@@ -9,11 +8,13 @@ public class CommandPattern : MonoBehaviour
 
     // History stack for handing undo
     private Stack<ICommand> undoStack;
+    private Stack<ICommand> redoStack;
 
 
     private void Start()
     {
         undoStack = new Stack<ICommand>();
+        redoStack = new Stack<ICommand>();
     }
 
     private void Update()
@@ -35,7 +36,12 @@ public class CommandPattern : MonoBehaviour
         {
             Execute(new RightCommand());
         }
-
+        if (Input.GetKeyDown(KeyCode.Space)) {
+            Execute(new UpCommand());
+        }
+        if (Input.GetKeyDown(KeyCode.LeftShift) || Input.GetKeyDown(KeyCode.RightShift)) {
+            Execute(new DownCommand());
+        }
         // Undo the action if undo is pressed
         if (Input.GetKeyDown(KeyCode.U))
         {
@@ -44,9 +50,9 @@ public class CommandPattern : MonoBehaviour
 
         if (Input.GetKeyDown(KeyCode.R))
         {
-            Debug.Log("Not implemented redo yet");
+            Debug.Log("Redo pressed");
             // Todo:: Implement a redo feature
-            //Redo();
+            Redo();
         }
     }
 
@@ -77,6 +83,20 @@ public class CommandPattern : MonoBehaviour
             ICommand command = undoStack.Pop();
             // Undo the command
             command.Undo();
+            // push the command onto the redo stack
+            redoStack.Push(command);
+        }
+    }
+
+    private void Redo() {
+        //if there are items in the stack
+        if (redoStack.Count > 0) {
+            //get and remove the last item from the redoStack
+            ICommand command = redoStack.Pop();
+            //redo the command
+            command.Redo();
+            //push the command back onto the undoStack
+            undoStack.Push(command);
         }
     }
 }
@@ -95,6 +115,7 @@ public interface ICommand
 
     void Execute();
     void Undo();
+    void Redo();
 }
 
 // Target Command stores the target gameboject that we will wish to 
@@ -108,6 +129,7 @@ public abstract class TargetCommand : ICommand
 
     public abstract void Execute();
     public abstract void Undo();
+    public abstract void Redo();
 }
 
 
@@ -121,6 +143,8 @@ public abstract class MoveCommand : TargetCommand
 {
     //We will need to know where we were prior to moving, in order to undo
     Vector3 oldPosition;
+    // we also need to know where we were prior to an undo in case of a redo
+    Vector3 undoPosition;
 
     /// <summary>
     /// Store the object we've acted on, and the oldposition, then
@@ -145,7 +169,12 @@ public abstract class MoveCommand : TargetCommand
     /// </summary>
     public override void Undo()
     {
+        undoPosition = target.transform.position;
         target.transform.position = oldPosition;
+    }
+
+    public override void Redo() {
+        target.transform.position = undoPosition;
     }
 }
 
@@ -183,5 +212,17 @@ public class RightCommand : MoveCommand
     public override void Execute()
     {
         Move(new Vector3(1.0f, 0.0f, 0.0f));
+    }
+}
+
+public class UpCommand : MoveCommand {
+    public override void Execute() {
+        Move(new Vector3(0f, 1f, 0f));
+    }
+}
+
+public class DownCommand : MoveCommand {
+    public override void Execute() {
+        Move(new Vector3(0f, -1f, 0f));
     }
 }
